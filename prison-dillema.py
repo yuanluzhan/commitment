@@ -6,10 +6,10 @@ class PD():
         self.population=100
         self.imitation_strength = 0.1
 
-        self.beta = 0.5
+        self.beta = 0.1
         self.epssilon1 = 1
         self.epssilon2 = 1
-        self.delta1 = 3
+        self.delta1 = 2
         self.delta2 = 3
         self.R = 3
         self.S = 1
@@ -69,33 +69,47 @@ class PD():
 
         # self.set_payoff_matrix_PD_with_commitment_punishment()
         self.set_payoff_matrix_PD_with_Punish()
-        self.fittness = np.zeros(self.num_strategies)
         self.transition_probability = np.zeros((self.num_strategies, self.num_strategies))
         N = self.population
 
+
+        #Two
         for i in range(self.num_strategies):
             for j in range(self.num_strategies):
                 if i != j:
                     tmp = 1
                     tmp1 = 1
+                    a = []
+                    b = []
                     for k in range(1,self.population - 1):
-                        fitness = (k - 1) * self.payoff_matrix[i][i] + (N - k) * self.payoff_matrix[i][j] + k * \
-                                  self.payoff_matrix[j][i] + (N - k - 1) * self.payoff_matrix[j][j] / (N - 1)
-                        T_up = (N - k) * k / (N * N * (1 + math.exp(-self.beta * fitness)))
-                        T_down = (N - k) * k / (N * N * (1 + math.exp(self.beta * fitness)))
-                        tmp = tmp * T_down / T_up
+
+                        fitnessA = ((k - 1) * self.payoff_matrix[i][i] + (N - k) * self.payoff_matrix[i][j] ) / (N - 1)
+                        fitnessB = (k * self.payoff_matrix[j][i] + (N - k - 1) * self.payoff_matrix[j][j]) / (N - 1)
+                        T_up = (N - k) * k / (N * N * (1 + math.exp(-self.beta * (fitnessA-fitnessB))))
+                        T_down = (N - k) * k / (N * N * (1 + math.exp(self.beta * (fitnessA-fitnessB))))
+                        a.append(T_down)
+                        b.append(T_up)
+                        tmp = tmp * (T_down / T_up)
                         tmp1 = tmp1 + tmp
 
-                    self.transition_probability[i][j] = 1 / tmp1
+                    self.transition_probability[i][j] = 1 / (tmp1*(self.num_strategies-1))
         for i in range(self.num_strategies):
             self.transition_probability[i][i] = 0
             self.transition_probability[i][i] = 1 - np.sum(self.transition_probability[i, :])
-        for iteration in range(10):
-            self.stra_distri = np.sum(self.stra_distri*self.transition_probability,axis=0)
-            if np.sum(self.stra_distri)!=100:
-                self.stra_distri = self.stra_distri*(100/np.sum(self.stra_distri))
-            print(self.stra_distri)
-        print(self.transition_probability)
+        print(np.around(self.transition_probability,3))
+
+
+
+        A = self.transition_probability-np.eye(self.num_strategies)+np.ones((self.num_strategies,self.num_strategies))
+        a = np.ones((1,self.num_strategies)).dot(np.linalg.inv(A))
+        print(np.around(a,4))
+
+        # for iteration in range(100):
+        #     self.stra_distri = np.sum(self.stra_distri*self.transition_probability,axis=0)
+        #     if np.sum(self.stra_distri)!=100:
+        #         self.stra_distri = self.stra_distri*(100/np.sum(self.stra_distri))
+        #     print(np.around(self.stra_distri))
+        # print(np.around(self.transition_probability,2))
 
 
 if __name__ == "__main__":
