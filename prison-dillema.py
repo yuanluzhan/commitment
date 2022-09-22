@@ -65,38 +65,60 @@ class PD():
         self.stra_distri = [10,10,10,10,20,20,20]
 
 
+
+    def fa(self,k,paa,pab):
+        n = self.population
+        fa = ((k-1)/n)*paa+((n-k)/n)*pab
+        return fa
+
+    def fb(self,k,pba,pbb):
+        n = self.population
+        fb = (k/n)*pba+((n-k-1)/n)*pbb
+        return fb
+
+    def t(self,k,a,b):
+        p =self.payoff_matrix
+        fa = self.fa(k,p[a,a],p[a,b])
+        fb = self.fb(k,p[b,a],p[b,b])
+        n = self.population
+        tplus = (k)*(n-k)/(n*n)/(1+math.exp(-self.beta*(fa-fb)))
+        tminus = (k) * (n - k) / (n * n) / (1 + math.exp(self.beta*(fa - fb)))
+        return tminus/tplus
+
+
+    def rho(self,a,b):
+        tmp1 = 1
+        n = self.population
+        for i in range(1,n+1):
+            tmp = 1
+            for j in range(1,i):
+                tmp = tmp*self.t(j,a,b)
+            tmp1 = tmp+tmp1
+
+        return 1/(tmp1*(self.num_strategies-1))
     def scenario(self):
 
         # self.set_payoff_matrix_PD_with_commitment_punishment()
         self.set_payoff_matrix_PD_with_Punish()
-        self.transition_probability = np.zeros((self.num_strategies, self.num_strategies))
+        self.transition_probability = np.ones((self.num_strategies, self.num_strategies))
         N = self.population
 
-
-        #Two
         for i in range(self.num_strategies):
             for j in range(self.num_strategies):
                 if i != j:
-                    tmp = 1
-                    tmp1 = 1
-                    a = []
-                    b = []
-                    for k in range(1,self.population - 1):
 
-                        fitnessA = ((k - 1) * self.payoff_matrix[i][i] + (N - k) * self.payoff_matrix[i][j] ) / (N - 1)
-                        fitnessB = (k * self.payoff_matrix[j][i] + (N - k - 1) * self.payoff_matrix[j][j]) / (N - 1)
-                        T_up = (N - k) * k / (N * N * (1 + math.exp(-self.beta * (fitnessA-fitnessB))))
-                        T_down = (N - k) * k / (N * N * (1 + math.exp(self.beta * (fitnessA-fitnessB))))
-                        a.append(T_down)
-                        b.append(T_up)
-                        tmp = tmp * (T_down / T_up)
-                        tmp1 = tmp1 + tmp
+                    self.transition_probability[i][j] = self.rho(i,j)
+                    # print(self.transition_probability[i][j])
+                    self.transition_probability[i][i] = self.transition_probability[i][i]-self.transition_probability[i][j]
 
-                    self.transition_probability[i][j] = 1 / (tmp1*(self.num_strategies-1))
-        for i in range(self.num_strategies):
-            self.transition_probability[i][i] = 0
-            self.transition_probability[i][i] = 1 - np.sum(self.transition_probability[i, :])
-        print(np.around(self.transition_probability,3))
+
+
+
+        x = np.matrix(self.transition_probability.T)
+        e,v = np.linalg.eig(x)
+        # print(e)
+        # print(v[:,0]/np.sum(v[:,0]))
+        print(np.around(self.transition_probability, 3))
 
 
 
