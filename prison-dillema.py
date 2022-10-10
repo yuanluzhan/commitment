@@ -19,10 +19,12 @@ class PD():
 
 
     def set_payoff_matrix_PD(self):
-        self.payoff_matrix[0][0] = self.R
-        self.payoff_matrix[0][1] = self.S
-        self.payoff_matrix[1][0] = self.T
-        self.payoff_matrix[1][1] = self.P
+        self.payoff_matrix = np.array([
+            [self.R,self.S],
+            [self.T,self.P]
+        ]).T
+        self.num_strategies = 2
+        self.stra_distri = [50,50]
 
     def set_payoff_matrix_PD_with_Punish(self):
         self.payoff_matrix = np.array([
@@ -32,7 +34,7 @@ class PD():
             [self.T - self.epssilon1 - self.delta1, self.T - self.epssilon1, self.P, self.P],
 
             ]
-        )
+        ).T
         self.num_strategies = 4
         self.stra_distri = [25,25,25,25]
 
@@ -45,7 +47,7 @@ class PD():
                 [self.T - self.delta2, self.T, self.P, self.P, self.P],
                 [self.T, self.T, self.P, self.P, self.P]
             ]
-        )
+        ).T
         self.num_strategies = 5
         self.stra_distri = [20, 20, 20, 20, 20]
 
@@ -65,7 +67,6 @@ class PD():
         self.stra_distri = [10,10,10,10,20,20,20]
 
 
-
     def fa(self,k,paa,pab):
         n = self.population
         fa = ((k-1)/n)*paa+((n-k)/n)*pab
@@ -83,6 +84,7 @@ class PD():
         n = self.population
         tplus = (k)*(n-k)/(n*n)/(1+math.exp(-self.beta*(fa-fb)))
         tminus = (k) * (n - k) / (n * n) / (1 + math.exp(self.beta*(fa - fb)))
+
         return tminus/tplus
 
 
@@ -98,8 +100,9 @@ class PD():
         return 1/(tmp1*(self.num_strategies-1))
     def scenario(self):
 
-        # self.set_payoff_matrix_PD_with_commitment_punishment()
-        self.set_payoff_matrix_PD_with_Punish()
+        self.set_payoff_matrix_PD_with_commitment_punishment()
+        # self.set_payoff_matrix_PD_with_Commitment()
+        # self.set_payoff_matrix_PD_with_Commitment()
         self.transition_probability = np.ones((self.num_strategies, self.num_strategies))
         N = self.population
 
