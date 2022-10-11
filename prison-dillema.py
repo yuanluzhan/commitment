@@ -100,9 +100,9 @@ class PD():
         return 1/(tmp1*(self.num_strategies-1))
     def scenario(self):
 
-        self.set_payoff_matrix_PD_with_commitment_punishment()
+        # self.set_payoff_matrix_PD_with_commitment_punishment()
         # self.set_payoff_matrix_PD_with_Commitment()
-        # self.set_payoff_matrix_PD_with_Commitment()
+        self.set_payoff_matrix_PD()
         self.transition_probability = np.ones((self.num_strategies, self.num_strategies))
         N = self.population
 
