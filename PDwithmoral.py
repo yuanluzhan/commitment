@@ -1,10 +1,11 @@
 import numpy as np
 import math
 import collections
+import random
 
 class Moral():
     def __init__(self):
-        self.population = 100
+        self.population = 1000
         self.imitation_strength =0.1
         self.beta = 0.1
         self.epsilon1 = 1
@@ -15,13 +16,17 @@ class Moral():
         self.S = 1
         self.T = 4
         self.P = 0
+        self.morals = np.random.normal(loc=0, scale=1, size=self.population)
+        self.morals = np.zeros(self.population)
+
 
     def set_payoff_matrix_PD(self):
         self.payoff_matrix = np.array([
-            [2,0],
-            [10,1]
+            [3,0],
+            [4,1]
         ])
         self.num_strategies = 2
+        self.moral_cof = [1, -1]
         self.individuals = np.random.random_integers(0,self.num_strategies-1, self.population)
         self.update_dis()
 
@@ -34,6 +39,8 @@ class Moral():
 
             ]
         )
+
+        self.moral_cof = [1,1,-1,-1]
         self.num_strategies = 4
         self.individuals = np.random.random_integers(0,self.num_strategies-1,self.population)
         # print(self.individuals)
@@ -42,7 +49,7 @@ class Moral():
     def set_payoff_matrix_PD_with_Commitment(self):
         self.payoff_matrix = np.array(
             [
-                [self.R - self.epsilon2/2, self.R - self.epsilon2, 0,  self.S-self.epsilon2+self.delta2, self.S - self.epsilon2],
+                [self.R - self.epsilon2/2, self.R - self.epsilon2, 0,  self.S-self.epsilon2+self.delta2, self.R - self.epsilon2],
                 [self.R, self.R, self.S, self.S, self.S],
                 [0, self.T, self.P, self.P, self.P],
                 [self.T - self.delta2, self.T, self.P, self.P, self.P],
@@ -50,6 +57,24 @@ class Moral():
             ]
         )
         self.num_strategies = 5
+        self.moral_cof = [1, 1, -1, -1,1]
+        self.individuals = np.random.random_integers(0, self.num_strategies - 1, self.population)
+        # print(self.individuals)
+        self.update_dis()
+
+    def set_payoff_matrix_PD_with_commitment_punishment(self):
+        self.payoff_matrix = np.array(
+            [
+                [self.R - self.epssilon2/2, self.R - self.epssilon2, 0, self.R-self.epssilon2, 0 ,self.R-self.epssilon2, self.S-self.epssilon2+self.delta2-self.delta1],
+                [self.R, self.R, self.S, self.R, self.S-self.delta1,self.S-self.delta1, self.S-self.delta1],
+                [0, self.T, self.P, self.T-self.delta1, self.P, self.P, self.P],
+                [self.R, self.R, self.R-self.epssilon1,self.R,self.S-self.epssilon1-self.delta1, self.S-self.epssilon1-self.delta1,self.S-self.epssilon1-self.delta1],
+                [0, self.T-self.epssilon1, self.P, self.T-self.epssilon1-self.delta1, self.P, self.P, self.P],
+                [self.R, self.T-self.epssilon1, self.P, self.T-self.epssilon1-self.delta1, self.P, self.P, self.P],
+                [self.T-self.delta2-self.epssilon2,self.T-self.epssilon1, self.P, self.T-self.epssilon1-self.delta1, self.P, self.P, self.P]
+            ]
+        )
+        self.num_strategies = 7
         self.individuals = np.random.random_integers(0, self.num_strategies - 1, self.population)
         # print(self.individuals)
         self.update_dis()
@@ -68,7 +93,7 @@ class Moral():
             tmp = 0
             for j in range(self.num_strategies):
                 if i==j:
-                    tmp = tmp + (self.stra_dis[i]-1)* self.payoff_matrix[i][j]
+                    tmp = tmp + (self.stra_dis[i]-1) * self.payoff_matrix[i][j]
                 else:
                     tmp = tmp + self.stra_dis[j]*self.payoff_matrix[i][j]
             fitness[i] = tmp/(self.population-1)
@@ -85,33 +110,29 @@ class Moral():
 
     def transist(self):
         # calculate the transition matrix
-        self.update_dis()
-        self.calculate_fitness()
-        index = []
-        for i in range(self.num_strategies):
-            index.append(np.where(self.individuals==i))
-        # simulate the transition process
-        for i in range(self.num_strategies):
-            p = self.transition_matrix[i, :]
-            tmp = np.random.choice(self.num_strategies, size=int(self.stra_dis[i]), p=p)
-
-            self.individuals[index[i]] = tmp
-
-
-        # # p = self.transition_matrix[self.individuals[i], :]
-        # tmp = np.random.choice(self.num_strategies, size=, p=p)
-        # for i in range(self.population):
-        #     p = self.transition_matrix[self.individuals[i],:]
-        #     tmp = np.random.choice(self.num_strategies,size=, p=p)
-        #     self.individuals[i] = tmp
+        index = np.arange(0,self.population)
+        random.shuffle(index)
+        for i in range(int(self.population/2)):
+            a = index[i]
+            b = index[i+int(self.population/2)]
+            a_strategy = self.individuals[a]
+            b_strategy = self.individuals[b]
+            payoffa = self.payoff_matrix[a_strategy, b_strategy]
+            payoffb = self.payoff_matrix[b_strategy, a_strategy]
+            transitiona = 1/(1+math.exp(-self.beta*(payoffb-(payoffa+self.moral_cof[a_strategy]*self.morals[a]))))
+            self.individuals[a] = np.random.choice([a_strategy,b_strategy],p = [1-transitiona,transitiona])
+            transitionb = 1 / (1 + math.exp(-self.beta * (payoffa - (payoffb + self.moral_cof[b_strategy]*self.morals[b]))))
+            self.individuals[b] = np.random.choice([a_strategy,b_strategy],p = [transitionb,1-transitionb])
 
     def simulation(self):
         # calculate the transition matrix
-        self.morals = np.random.normal(loc=0, scale=1, size=self.population)
-        self.set_payoff_matrix_PD_with_Punish()
-        for iter in range(100):
+
+        self.set_payoff_matrix_PD_with_Commitment()
+        for iter in range(1000):
             self.transist()
+            self.update_dis()
             print(self.stra_dis)
+
 
 
 if __name__ == "__main__":
