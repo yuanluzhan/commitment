@@ -13,9 +13,9 @@ class Moral():
         self.delta1 = 3
         self.delta2 = 3
         self.R = 3
-        self.S = 1
+        self.S = 0
         self.T = 4
-        self.P = 0
+        self.P = 1
         self.morals = np.random.normal(loc=0, scale=1, size=self.population)
         self.morals = np.zeros(self.population)
 
@@ -40,6 +40,7 @@ class Moral():
             ]
         )
 
+        # self.moral_cof = [0,0,0,0]
         self.moral_cof = [1,1,-1,-1]
         self.num_strategies = 4
         self.individuals = np.random.random_integers(0,self.num_strategies-1,self.population)
@@ -65,18 +66,19 @@ class Moral():
     def set_payoff_matrix_PD_with_commitment_punishment(self):
         self.payoff_matrix = np.array(
             [
-                [self.R - self.epssilon2/2, self.R - self.epssilon2, 0, self.R-self.epssilon2, 0 ,self.R-self.epssilon2, self.S-self.epssilon2+self.delta2-self.delta1],
+                [self.R - self.epsilon2/2, self.R - self.epsilon2, 0, self.R-self.epsilon2, 0 ,self.R-self.epsilon2, self.S-self.epsilon2+self.delta2-self.delta1],
                 [self.R, self.R, self.S, self.R, self.S-self.delta1,self.S-self.delta1, self.S-self.delta1],
                 [0, self.T, self.P, self.T-self.delta1, self.P, self.P, self.P],
-                [self.R, self.R, self.R-self.epssilon1,self.R,self.S-self.epssilon1-self.delta1, self.S-self.epssilon1-self.delta1,self.S-self.epssilon1-self.delta1],
-                [0, self.T-self.epssilon1, self.P, self.T-self.epssilon1-self.delta1, self.P, self.P, self.P],
-                [self.R, self.T-self.epssilon1, self.P, self.T-self.epssilon1-self.delta1, self.P, self.P, self.P],
-                [self.T-self.delta2-self.epssilon2,self.T-self.epssilon1, self.P, self.T-self.epssilon1-self.delta1, self.P, self.P, self.P]
+                [self.R, self.R, self.R-self.epsilon1,self.R,self.S-self.epsilon1-self.delta1, self.S-self.epsilon1-self.delta1,self.S-self.epsilon1-self.delta1],
+                [0, self.T-self.epsilon1, self.P, self.T-self.epsilon1-self.delta1, self.P, self.P, self.P],
+                [self.R, self.T-self.epsilon1, self.P, self.T-self.epsilon1-self.delta1, self.P, self.P, self.P],
+                [self.T-self.delta2-self.epsilon2,self.T-self.epsilon1, self.P, self.T-self.epsilon1-self.delta1, self.P, self.P, self.P]
             ]
         )
         self.num_strategies = 7
         self.individuals = np.random.random_integers(0, self.num_strategies - 1, self.population)
         # print(self.individuals)
+        self.moral_cof = [1, 1, 1, -1, -1,-1,-1]
         self.update_dis()
 
 
@@ -127,7 +129,7 @@ class Moral():
     def simulation(self):
         # calculate the transition matrix
 
-        self.set_payoff_matrix_PD_with_Commitment()
+        self.set_payoff_matrix_PD_with_commitment_punishment()
         for iter in range(1000):
             self.transist()
             self.update_dis()

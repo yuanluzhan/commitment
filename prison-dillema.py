@@ -12,9 +12,9 @@ class PD():
         self.delta1 = 6
         self.delta2 = 6
         self.R = 3
-        self.S = 1
+        self.S = 0
         self.T = 4
-        self.P = 0
+        self.P = 1
 
 
 
@@ -22,9 +22,11 @@ class PD():
         self.payoff_matrix = np.array([
             [self.R,self.S],
             [self.T,self.P]
-        ]).T
+        ])
         self.num_strategies = 2
         self.stra_distri = [50,50]
+
+
 
     def set_payoff_matrix_PD_with_Punish(self):
         self.payoff_matrix = np.array([
@@ -36,6 +38,7 @@ class PD():
         ).T
         self.num_strategies = 3
 
+
     def set_payoff_matrix_PD_with_AntiPunish(self):
         self.payoff_matrix = np.array([
             [self.R, self.R, self.S - self.epssilon1, self.S - self.epssilon1 - self.delta1],
@@ -44,7 +47,7 @@ class PD():
             [self.T - self.epssilon1 - self.delta1, self.T - self.epssilon1, self.P, self.P],
 
             ]
-        ).T
+        )
         self.num_strategies = 4
         self.stra_distri = [25,25,25,25]
 
@@ -111,7 +114,7 @@ class PD():
 
     def scenario(self):
         # self.set_payoff_matrix_PD_with_commitment_punishment()
-        self.set_payoff_matrix_PD_with_Commitment()
+        self.set_payoff_matrix_PD_with_AntiPunish()
         # self.set_payoff_matrix_PD_with_Punish()
         self.transition_probability = np.ones((self.num_strategies, self.num_strategies))
         N = self.population
