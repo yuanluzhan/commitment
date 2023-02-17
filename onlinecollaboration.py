@@ -14,10 +14,11 @@ class Agent(mesa.Agent):
 
     def __init__(self, unique_id, model):
         super().__init__(unique_id, model)
-        self.strategy = 2
-        self.individual = random.gauss(0,1)
+        self.strategy = random.randint(0,4)
+        self.individual = random.gauss(0.02,1)
         self.payoff = 0
         self.beta = 0.2
+
 
 
     def learn(self,other_agent):
@@ -38,25 +39,34 @@ class Agent(mesa.Agent):
 
 
 
-    def interation(self,payoff_matrix):
+    def interation(self,payoff_matrix,N):
         other_agent = self.random.choice(self.model.schedule.agents)
         tmp = random.uniform(0,1)
-        if tmp<0.01:
+        if tmp<1/N:
             self.strategy = random.randint(0,4)
             #other_agent.strategy = 0 #random.randint(0,4)
         self.payoff = payoff_matrix[self.strategy][other_agent.strategy]
+        if self.strategy<2:
+            self.payoff = self.payoff + self.individual
+        else:
+            self.payoff = self.payoff - self.individual
+
         other_agent.payoff = payoff_matrix[other_agent.strategy][self.strategy]
+        if other_agent.strategy<2:
+            other_agent.payoff = other_agent.payoff + other_agent.individual
+        else:
+            other_agent.payoff = other_agent.payoff - other_agent.individual
+
         self.learn(other_agent)
 
 
-
-    def step(self,payoff_matrix):
-        self.interation(payoff_matrix)
+    def step(self,payoff_matrix,N):
+        self.interation(payoff_matrix,N)
 
 class RandomActivation(mesa.time.RandomActivation):
-    def step(self,payoff_matrix):
+    def step(self,payoff_matrix,N):
         for agent in self.agent_buffer(shuffled=True):
-            agent.step(payoff_matrix)
+            agent.step(payoff_matrix,N)
         self.steps += 1
         self.time += 1
 
@@ -66,7 +76,7 @@ class Model(mesa.Model):
 
     def __init__(self, N):
         self.num_agents = N
-        self.epsilon2 = 0.01
+        self.epsilon2 = 0.1
         self.delta2 = 5
         a = 3
         b = 2
@@ -80,7 +90,7 @@ class Model(mesa.Model):
                 [a, a, b, b, b],
                 [0, c, d, d, d],
                 [c - self.delta2, c, d, d, d],
-                [c, c, d, d, d]
+                [a, c, d, d, d]
             ]
         )
         # Create agents
@@ -108,11 +118,11 @@ class Model(mesa.Model):
         self.strategy_record4 = agent_strategy.count(4)
 
         self.datacollector.collect(self)
-        self.schedule.step(self.payoff_matrix)
+        self.schedule.step(self.payoff_matrix,self.num_agents)
 
 
 model = Model(1000)
-for i in range(200):
+for i in range(1000):
     model.step()
 record = model.datacollector.get_model_vars_dataframe()
 a = model.datacollector.get_agent_vars_dataframe()
