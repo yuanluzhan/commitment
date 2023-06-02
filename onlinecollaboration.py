@@ -1,6 +1,5 @@
 import math
 import random
-
 import delayed
 import pandas as pd
 import mesa.time
@@ -19,53 +18,78 @@ import json
 class Agent(mesa.Agent):
     """An agent with fixed initial wealth."""
 
-    def __init__(self, unique_id, model, param_agent):
+    def __init__(self, unique_id, model, para_individual_information, para_init_distribution):
         super().__init__(unique_id, model)
 
-        self.type = random.randint(0, 2)  # type  type 0 cooperate  1 fake   0 no preference
-        # strategy
-        self.strategy_region()
-        self.strategy = random.choice(self.strategies_region)  # strategy
+        self.init_distribution(para_init_distribution)
+        self.init_individual(para_individual_information)
 
-        self.individual = 0 # abs(random.gauss(mu=0, sigma=param_agent["ind_distri"][0]))  # preference intense
-        self.rationality = 5#float(param_agent["ind_rationality"][0])#random.gauss(mu=param_agent["ind_rationality"][0],
-                                        #sigma=param_agent["ind_rationality"][1])  # updating parameter
-        self.memory_length = random.randint(param_agent["ind_memory_length"][0],
-                                            param_agent["ind_memory_length"][1])  # learning horizon
-        self.opp_history_strategy = []  # interaction history strategy
-        self.opp_history = []  # interaction history
+        self.history_opp_strategy = []  # interaction history strategy
+        self.history_opp_id = []  # interaction history
         self.history = []  # history strategy
         self.history.append(self.strategy)
         self.interaction_time = []
 
+    def init_individual(self,para_individual_information):
+        self.individual = para_individual_information["para_individual"]
+        self.rationality = para_individual_information["rationality"]
+        self.memory_length = para_individual_information["history_length"]
+
+    def init_distribution(self, para_init_distribution):
+        # type 0 cooperate  1 fake   2 no preference
+        self.type = np.random.choice([0,1,2],p=para_init_distribution["ind_type"])
+        self.strategy_region()
+        if para_init_distribution["strategy"] == "random":
+            self.strategy = random.choice(self.strategies_region)
+        if para_init_distribution["strategy"] == "Free":
+            tmp = random.uniform(0, 1)
+            if tmp < 0.1:
+                self.strategy = random.choice(self.strategies_region)
+            else:
+                self.strategy = 4
+        if para_init_distribution["strategy"] == "D":
+            tmp = random.uniform(0, 1)
+            if tmp < 0.1:
+                self.strategy = random.choice(self.strategies_region)
+            else:
+                self.strategy = 2
+
     def strategy_region(self):
         if self.type == 0:
-            self.strategies_region = [0, 1, 2,3, 4]
-        if self.type == 2:
-            self.strategies_region = [0, 1, 2,3, 4]
+            self.strategies_region = [0, 1, 4]
         if self.type == 1:
-            self.strategies_region = [0,1,2, 3, 4]
+            self.strategies_region = [2, 3, 4]
+        if self.type == 2:
+            self.strategies_region = [0, 1, 2, 4]
+
+        self.preference_interest = np.zeros([3,5])
+        self.preference_interest[0][0:2] = 1
+        self.preference_interest[1][2:5] = 1
 
     def interation(self, t, payoff_matrix):
         # Random Match a player
         other_agent = self.random.choice(self.model.schedule.agents)
 
         # Store basic information
-        self.opp_history.append(other_agent.unique_id)
-        other_agent.opp_history.append(self.unique_id)
+        self.history_opp_id.append(other_agent.unique_id)
+        other_agent.history_opp_id.append(self.unique_id)
         self.interaction_time.append(t)
         other_agent.interaction_time.append(t)
         # Strategy Choice
         tmp = random.uniform(0, 1)
-        if tmp < 0.0001:
+        if tmp < 0.01:
             self.strategy = random.choice(other_agent.strategies_region)
-            other_agent.strategy = random.choice(other_agent.strategies_region)
+            other_agent.rationality = random.choice(other_agent.strategies_region)
         else:
-            self.strategy, other_agent.strategy = best_response(self, other_agent, payoff_matrix)
-        other_agent.opp_history_strategy.append(self.strategy)
-        self.opp_history_strategy.append(other_agent.strategy)
+            self.strategy, other_agent.rationality = best_response(self, other_agent, payoff_matrix)
+
+
+
+
         self.history.append(self.strategy)
-        other_agent.history.append(other_agent.strategy)
+        self.history_opp_strategy.append(other_agent.rationality)
+        other_agent.history.append(other_agent.rationality)
+        other_agent.history_opp_strategy.append(self.strategy)
 
     def calculate_payoff(self, payoff_matrix):
 
@@ -74,8 +98,7 @@ class Agent(mesa.Agent):
         for s in range(0, 5):
             tmp = 0
             for x in t:
-                tmp = tmp + payoff_matrix[s][x] + self.individual * int(self.type == (s // 2))
-                ylz = self.type == (s // 2)
+                tmp = tmp + payoff_matrix[s][x] + self.individual * int(self.preference_interest[self.type][s])
             self.payoff.append(tmp)
 
     def step(self, t, payoff_matrix):
@@ -137,132 +160,65 @@ class RandomActivation(mesa.time.RandomActivation):
 class Model(mesa.Model):
     """A model with some number of agents."""
 
-    def __init__(self, N, para_model, para_agent):
-        c = para_model['c']
-        a = para_model['a']
-        b = para_model['b']
-        d = para_model['d']
-        epsilon2 = para_model['epsilon2']
-        delta2 = para_model['delta2']
+    def __init__(self, para):
+        para_payoff, para_game_settings, para_individual_information, para_init_distribution = para
+        c = para_payoff['c']
+        a = para_payoff['a']
+        b = para_payoff['b']
+        d = para_payoff['d']
+        epsilon = para_payoff['epsilon']
+        delta = para_payoff['delta']
 
-        self.num_agents = N
+        self.num_agents = para_game_settings["num_all_players"]
+        self.num_participants = para_game_settings["num_participants"]
         self.schedule = RandomActivation(self)
         # Create agents
         self.agent_keys = []
+        self.agent1_strategy = []
+        self.agent2_strategy = []
         self.payoff_matrix = np.array(
             [
-                [a - epsilon2 / 2, a - epsilon2, 0, b - epsilon2 + delta2, a - epsilon2],
+                [a - epsilon / 2, a - epsilon, 0, b - epsilon + delta, a - epsilon],
                 [a, a, b, b, b],
                 [0, c, d, d, d],
-                [c - delta2, c, d, d, d],
+                [c - delta, c, d, d, d],
                 [a, c, d, d, d]
             ]
         )
         self.agent_information = []
 
         for i in range(self.num_agents):
-            a = Agent(i, self, para_agent)
+            a = Agent(i, self, para_individual_information, para_init_distribution)
             self.schedule.add(a)
         self.datacollector = mesa.datacollection.DataCollector(
             model_reporters={
                 "Agent_keys": "agent_keys",
-                "Agent_information": "agent_information"
+                "Agent_information": "agent_information",
+                "Agent1_strategy": "agent1_strategy",
+                "Agent2_strategy": "agent2_strategy"
             },
             agent_reporters={
                 "individual": "individual",
                 "agent_type": "type",
-                "strategy_history": "opp_history_strategy",
-                "opp_history": "opp_history",
-                "opp_history_strategy": "opp_history_strategy",
-                "interaction_time": "interaction_time"
             }
         )
 
     def step(self):
+
+        agent_keys = random.choices(np.arange(0, self.num_agents), k=self.num_participants)
+        self.agent_keys.append(agent_keys)
+        self.schedule.step(agent_keys, self.payoff_matrix)
+        interaction1 = []
+        interaction2 = []
+        for i in agent_keys:
+            agent = self.schedule.agents[i]
+            interaction1.append(agent.strategy)
+            interaction2.append(agent.history_opp_strategy[-1])
+        self.agent1_strategy.append(interaction1)
+        self.agent2_strategy.append(interaction2)
         agent_information = []
         for agent in self.schedule.agents:
             agent_information.append(agent.strategy)
-        # agent_inforamtion = [int(agent.strategy) for agent in self.schedule.agents]
+
         self.agent_information.append(agent_information)
-        agent_keys = random.choices(np.arange(0, self.num_agents), k=10)
-        self.agent_keys.append(agent_keys)
-        self.schedule.step(agent_keys, self.payoff_matrix)
 
-def run(params):
-    para_model, para_agent = params
-    model = Model(100, para_model, para_agent)
-    for i in range(1000):
-        model.step()
-    model.agent_keys = np.array(model.agent_keys)
-    model.datacollector.collect(model)
-    record = model.datacollector.get_model_vars_dataframe()
-    Agent_keys = pd.DataFrame(record['Agent_keys'].values[0])
-    Agent_information = pd.DataFrame(record['Agent_information'].values[0])
-    a = model.datacollector.get_agent_vars_dataframe()
-    path = 'result/' + str(list(para_model.values())) +'/' + str(list(para_agent.values()))
-    if not os.path.exists(path):
-        os.makedirs(path, exist_ok=True)
-    a.to_csv(path + '/agent_result.csv')
-    Agent_keys.to_csv(path + '/agent_keys.csv')
-    Agent_information.to_csv(path + '/agent_information.csv')
-    np.save(path + '/para.npy', [para_model,para_agent])
-
-    # tmp = Agent_information.values
-    # s1 = []
-    # for i in range(len(tmp)):
-    #     # print(tmp[i][1:])
-    #     s1.append(np.bincount(tmp[i][1:]))
-    #
-    # plt.plot(s1, label=['Com', 'C', 'D', 'fake', 'free'])
-    # plt.legend()
-    # plt.show()
-    # record = pd.read_csv("result1/[0.9, 0.8, 0.8, 0.8, 0.01, 0.0]/[[0.01], [10, 0.1], [10, 10]]/model_result.csv")
-    # tmp = record['Agent_information'].values[0]
-    # s1 = []
-    # for i in range(len(tmp)):
-    #     s1.append([tmp[i].count(0), tmp[i].count(1), tmp[i].count(2), tmp[i].count(3), tmp[i].count(4)])
-    #
-    # plt.plot(s1)
-    # plt.show()
-
-def para_generat():
-    params = []
-    for d in np.arange(0.1, 0.8, 0.1):
-        for b in np.arange(d+0.1, 0.9, 0.1):
-            for a in np.arange(b+0.1, 1, 0.1):
-                for c in np.arange(a+0.1, 1.01, 0.1):
-                    for epsilon2 in np.arange(0.01, 0.10, 0.01):
-                        for delta2 in np.arange(0.05, 2*(c - a), 0.05):
-                            for ind_distri in np.arange(0.01, 0.02, 0.01):
-                                for ind_rationality1 in np.arange(1, 3, 1):
-                                    for ind_memory_length1 in np.arange(9, 11, 1):
-                                        for ind_memory_length2 in np.arange(ind_memory_length1+1, 11, 1):
-                                            para_model = {
-                                                'c': np.around(c,2),
-                                                'a': np.around(a,2),
-                                                'b': np.around(b,2),
-                                                'd': np.around(d,2),
-                                                'epsilon2': np.around(epsilon2,2),
-                                                'delta2': np.around(delta2,2)
-                                            }
-                                            para_agent = {
-                                                "ind_distri": [np.around(ind_distri,2)],
-                                                "ind_rationality": [np.around(ind_rationality1,1)],# np.around(ind_rationality2,2)],
-                                                "ind_memory_length": [np.around(ind_memory_length1,2), np.around(ind_memory_length2,2)]
-                                            }
-                                            yield [para_model, para_agent]
-                                            # params.append([para_model,para_agent])
-                                            # return params
-
-if __name__ == '__main__':
-
-    params = para_generat()
-    # with Pool(10) as p:
-    #     p.map(run, params)
-    # for param in params:
-    #     print(param)
-    #     run(param)
-    #     raise Exception('s')
-    print(time.time())
-    result = Parallel(n_jobs = 200)(delayed(run)(param) for param in params)
-    print(time.time())
